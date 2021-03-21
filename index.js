@@ -93,7 +93,9 @@ app.use((req, res) => {
   })
 })
 
-const PORT = 3001
+//const PORT = 3001
+const PORT = Number(process.env.port) || 3002
+
 app.listen(PORT, () => {
   console.log(`Server running at port ${PORT}`)
 })
