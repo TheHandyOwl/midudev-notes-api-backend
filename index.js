@@ -1,11 +1,38 @@
+require('./config/db')
+
 const express = require('express')
 const cors = require('cors')
-
 const app = express()
 const logger = require('./middlewares/loggerMiddleware')
+const Note = require('./models/Note')
+const notFound = require('./middlewares/notFound')
+const handleErrors = require('./middlewares/handleErrors')
+
+// Sentry modules
+const Sentry = require('@sentry/node')
+const Tracing = require('@sentry/tracing')
 
 app.use(cors())
 app.use(express.json())
+// app.use(express.static('./images'))
+// app.use('/static', express.static('./images'))
+app.use('/images', express.static('./images'))
+
+// Sentry init
+Sentry.init({
+  dsn: 'https://f90ed4e9bdd14fcb94e1668242d4ae16@o558101.ingest.sentry.io/5691157',
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true }),
+    // enable Express.js middleware tracing
+    new Tracing.Integrations.Express({ app })
+  ],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0
+})
 
 app.use(logger)
 
@@ -14,56 +41,72 @@ app.use((req, res, next) => {
   next()
 })
 
-let notes = [
-  {
-    id: 1,
-    content: 'HTML is easy',
-    date: '2019-05-30T17:30:31.098Z',
-    important: true,
-    categories: ['sport', 'hobby']
-  },
-  {
-    id: 2,
-    content: 'Browser can execute only JavaScript',
-    date: '2019-05-30T18:39:34.091Z',
-    important: false
-  },
-  {
-    id: 3,
-    content: 'GET and POST are the most important methods of HTTP protocol',
-    date: '2019-05-30T19:20:14.298Z',
-    important: true
-  }
-]
+// Sentry before routes
+// RequestHandler creates a separate execution context using domains, so that every
+// transaction/span/breadcrumb is attached to its own Hub instance
+app.use(Sentry.Handlers.requestHandler())
+// TracingHandler creates a trace for every incoming request
+app.use(Sentry.Handlers.tracingHandler())
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!</h1>')
 })
 
-app.get('/api/notes', (req, res) => {
-  res.json(notes)
+app.get('/api/notes', (req, res, next) => {
+  Note.find({})
+    .then(notes => {
+      res.json(notes)
+    })
+    .catch(err => { next(err) })
 })
 
-app.get('/api/notes/:id', (req, res) => {
-  const id = Number(req.params.id)
-  const note = notes.find(note => note.id === id)
-  if (note) {
-    res.json(note)
-  } else {
-    // res.status(404).send('<h1> Page not found </h1>');
-    res.status(404).end()
-  }
+app.get('/api/notes/:id', (req, res, next) => {
+  // const id = req.params.id
+  const { id } = req.params
+
+  Note
+    .findById(id)
+    .then(note => {
+      if (note) {
+        return res.json(note)
+      } else {
+        return res.status(404).end()
+      }
+    })
+    .catch(err => { next(err) })
 })
 
-app.delete('/api/notes/:id', (req, res) => {
-  const id = Number(req.params.id)
-  notes = notes.filter(note => note.id !== id)
-  res.status(204).end()
-})
-
-app.post('/api/notes', (req, res) => {
+app.put('/api/notes/:id', (req, res, next) => {
+  const { id } = req.params
   const note = req.body
-  console.log(note)
+
+  const newNoteInfo = {
+    content: note.content,
+    important: typeof note.important !== 'undefined' ? note.important : false
+  }
+
+  Note
+    .findByIdAndUpdate(id, newNoteInfo, { new: true })
+    .then(result => {
+      console.log({ result })
+      res.status(201).end()
+    })
+    .catch(err => { next(err) })
+})
+
+app.delete('/api/notes/:id', (req, res, next) => {
+  const { id } = req.params
+
+  Note
+    .findByIdAndDelete(id)
+    .then(() => {
+      return res.status(204).end()
+    })
+    .catch(err => { next(err) })
+})
+
+app.post('/api/notes', (req, res, next) => {
+  const note = req.body
 
   if (!note || !note.content) {
     return res.status(400).json({
@@ -71,29 +114,31 @@ app.post('/api/notes', (req, res) => {
     })
   }
 
-  const ids = notes.map(note => note.id)
-  const maxId = Math.max(...ids)
-  const newNote = {
-    id: maxId + 1,
+  const newNote = new Note({
     content: note.content,
     important: typeof note.important !== 'undefined' ? note.important : false,
     date: new Date().toISOString()
-  }
-  notes = [...notes, newNote]
-  console.log(newNote)
-
-  res.status(201).json(newNote)
-})
-
-app.use((req, res) => {
-  console.log('Middleware 404')
-  console.log(`Send to DB: ${req.path}`)
-  res.status(404).json({
-    error: 'Not found - 404'
   })
+
+  newNote
+    .save()
+    .then(savedNote => {
+      res.status(201).json(savedNote)
+    })
+    .catch(err => { next(err) })
 })
 
-//const PORT = 3001
+// Middleware - 404 y sin errores
+app.use(notFound)
+
+// Sentry errorHandler
+// The error handler must be before any other error middleware and after all controllers
+app.use(Sentry.Handlers.errorHandler())
+
+// Middleware - Error control
+app.use(handleErrors)
+
+// const PORT = 3001
 const PORT = Number(process.env.PORT) || 3002
 
 app.listen(PORT, () => {

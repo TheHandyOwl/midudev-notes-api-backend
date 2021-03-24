@@ -1,0 +1,22 @@
+PUT http://localhost:3002/api/notes/605928de92015f46e0851b7f
+Content-Type: application/json
+
+{
+}
+
+###
+PUT http://localhost:3002/api/notes/605928de92015f46e0851b7f
+Content-Type: application/json
+
+{
+    "content": "My new note"
+}
+
+###
+PUT http://localhost:3002/api/notes/605928de92015f46e0851b7f
+Content-Type: application/json
+
+{
+    "content": "My new notes",
+    "important": true
+}

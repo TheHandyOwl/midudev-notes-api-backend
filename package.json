@@ -16,8 +16,11 @@
     "standard": "16.0.3"
   },
   "dependencies": {
+    "@sentry/node": "6.2.3",
+    "@sentry/tracing": "6.2.3",
     "cors": "2.8.5",
-    "express": "4.17.1"
+    "express": "4.17.1",
+    "mongoose": "5.12.1"
   },
   "eslintConfig": {
     "extends": "./node_modules/standard/eslintrc.json"
