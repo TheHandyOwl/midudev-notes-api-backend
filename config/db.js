@@ -1,17 +1,12 @@
 const mongoose = require('mongoose')
 
-const { dbUser, dbPassword } = require('./passwords')
+const { dbName, dbPassword, dbUser } = require('./passwords')
 
-const connectionStringDB = `mongodb+srv://${dbUser}:${dbPassword}@midudevfsb.fhvt9.mongodb.net/midudb?retryWrites=true&w=majority`
+const connectionStringDB = `mongodb+srv://${dbUser}:${dbPassword}@midudevfsb.fhvt9.mongodb.net/${dbName}?retryWrites=true&w=majority`
 
 // Conexión a mongodb
 mongoose
-  .connect(connectionStringDB, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useFindAndModify: false,
-    useCreateIndex: true
-  })
+  .connect(connectionStringDB)
   .then(() => {
     console.log('DB connected')
   })

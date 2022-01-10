@@ -89,7 +89,7 @@ app.put('/api/notes/:id', (req, res, next) => {
     .findByIdAndUpdate(id, newNoteInfo, { new: true })
     .then(result => {
       console.log({ result })
-      res.status(201).end()
+      res.status(201).json(result)
     })
     .catch(err => { next(err) })
 })
@@ -100,7 +100,7 @@ app.delete('/api/notes/:id', (req, res, next) => {
   Note
     .findByIdAndDelete(id)
     .then(() => {
-      return res.status(204).end()
+      res.status(204).end()
     })
     .catch(err => { next(err) })
 })
